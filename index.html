@@ -1576,7 +1576,7 @@ function settingsPage(){
   <button class="danger" onclick="trashPage()">باز کردن سطل بازیافت</button></div>
 
   <div class="card"><h3>دربارهٔ این نسخه</h3>
-  <p>اقساطیار پلاس ۱٫۲۴٫۰ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
+  <p>اقساطیار پلاس ۱٫۲۴٫۱ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
   <p class="muted">شماره قرارداد از ۱۰۱ شروع می‌شود. قالب‌های پیامک قابل تنظیم‌اند.</p></div>`;
 }
 function saveSmsTemplates(){
@@ -3352,7 +3352,9 @@ function lgSlFromInst(){
   if(!SL.items.length||ph.some(x=>!x)){alert('اول گوشی‌های فروخته‌شده را انتخاب کنید.');return;}
   const paid=SL.pays.reduce((s,r)=>s+r.amt,0),tsum=SL.tins.reduce((s,t)=>s+t.cost,0);
   const T=q*n,F=Math.round(T/(1+n*SL.rs/100));
-  const total=Math.round((F+paid+tsum)/10000)*10000;
+  const side=SL.sides.reduce((a,r)=>a+(Number(r.amt)||0),0);
+  if(side>paid){alert('مبلغ جانبی بیشتر از جمع پرداخت‌هاست.');return;}
+  const total=Math.round((F+(paid-side)+tsum)/10000)*10000;
   const useP=SL.items.every(r=>Number(r.price)>0);
   const w=SL.items.map((r,i)=>useP?Number(r.price):ph[i].cost),ws=w.reduce((s,x)=>s+x,0)||1;
   let left=total;
@@ -3668,7 +3670,7 @@ function lgShareTrial(){
 }
 function lgMore(){
   const st=LG.settings;
-  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۴٫۰</p>
+  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۴٫۱</p>
   ${themeCard()}${synCard()}
   <div class="card"><b>شرکا و درصدها</b><p class="muted">${LG.partners.map(p=>esc(p.name)+' '+fa(lSharesAt(LG,today())[p.id])+'٪').join(' · ')}</p><button onclick="lgPartners()">مدیریت شرکا</button></div>
   <div class="card"><b>حساب‌های بانکی و صندوق</b><p class="muted">افزودن، تغییر نام یا غیرفعال‌کردن حساب‌های بانکی</p><button onclick="lgBanks()">مدیریت حساب‌ها</button></div>
