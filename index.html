@@ -1576,7 +1576,7 @@ function settingsPage(){
   <button class="danger" onclick="trashPage()">باز کردن سطل بازیافت</button></div>
 
   <div class="card"><h3>دربارهٔ این نسخه</h3>
-  <p>اقساطیار پلاس ۱٫۲۴٫۲ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
+  <p>اقساطیار پلاس ۱٫۲۵٫۰ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
   <p class="muted">شماره قرارداد از ۱۰۱ شروع می‌شود. قالب‌های پیامک قابل تنظیم‌اند.</p></div>`;
 }
 function saveSmsTemplates(){
@@ -2126,11 +2126,12 @@ function lPhoneClean(p){
   const s=(v,n)=>String(v==null?'':v).trim().slice(0,n);
   const o={id:(typeof p.id==='string'&&p.id)?p.id:uid(),brand:s(p.brand,40),model:s(p.model,60),color:s(p.color,30),storage:s(p.storage,20),
     cond:p.cond==='used'?'used':'new',battery:null,imei1:s(p.imei1,20).replace(/\D/g,''),imei2:s(p.imei2,20).replace(/\D/g,''),
-    registry:L_REG[p.registry]?p.registry:'unk',warranty:s(p.warranty,60),cost:Number(p.cost||0)};
+    registry:L_REG[p.registry]?p.registry:'unk',warranty:s(p.warranty,60),note:s(p.note,300),cost:Number(p.cost||0)};
   if(o.cond==='used'&&p.battery!==''&&p.battery!=null)o.battery=Number(p.battery);
   if(!o.brand||!o.model)throw Error('برند و مدل گوشی را وارد کنید.');
   if(o.battery!==null&&!(Number.isInteger(o.battery)&&o.battery>=1&&o.battery<=100))throw Error('درصد سلامت باتری باید عددی بین ۱ تا ۱۰۰ باشد.');
-  if(!/^\d{15}$/.test(o.imei1))throw Error('IMEI اول باید ۱۵ رقم باشد.');
+  if(o.imei1&&!/^\d{15}$/.test(o.imei1))throw Error('IMEI اول باید ۱۵ رقم باشد (یا خالی بماند).');
+  if(o.imei2&&!o.imei1)throw Error('IMEI دوم بدون IMEI اول ثبت نمی‌شود.');
   if(o.imei2&&!/^\d{15}$/.test(o.imei2))throw Error('IMEI دوم باید ۱۵ رقم باشد (یا خالی بماند).');
   if(o.imei2&&o.imei2===o.imei1)throw Error('IMEI اول و دوم یکی است.');
   if(!lAmtOk(o.cost))throw Error('بهای گوشی معتبر نیست.');
@@ -2738,7 +2739,7 @@ function lgSearchRun(v){
   ].filter(x=>hit(x.n));
   if(people.length)h+='<h3 style="margin-top:12px">حساب‌ها و اشخاص</h3>'+people.slice(0,12).map(x=>`<div class="card row spread card-clickable" onclick="closeModal();${x.f}"><b>${esc(x.n)}</b><span class="muted">${esc(x.sub)}</span></div>`).join('');
   const phs=lPhones(LG).filter(p=>{const hy=lgPhoneHay(p);return toks.every(t=>hy.includes(t));});
-  if(phs.length)h+=`<h3 style="margin-top:12px">گوشی‌ها (${fa(phs.length)})</h3>`+phs.slice(0,8).map(p=>`<div class="card row spread card-clickable" onclick="lgPhoneView('${p.id}')"><div><b>${esc(lgPhoneLabel(p))}</b><div class="muted">IMEI ${esc(fa(p.imei1))}</div></div><span class="badge ${p.status==='sold'?'late':'ok'}">${p.status==='sold'?'فروخته شد':'موجود'}</span></div>`).join('')+(phs.length>8?'<p class="muted">برای دیدن همه، در تب «گوشی‌ها» جستجو کن.</p>':'');
+  if(phs.length)h+=`<h3 style="margin-top:12px">گوشی‌ها (${fa(phs.length)})</h3>`+phs.slice(0,8).map(p=>`<div class="card row spread card-clickable" onclick="lgPhoneView('${p.id}')"><div><b>${esc(lgPhoneLabel(p))}</b><div class="muted">${esc(lgImeiTxt(p))}</div></div><span class="badge ${p.status==='sold'?'late':'ok'}">${p.status==='sold'?'فروخته شد':'موجود'}</span></div>`).join('')+(phs.length>8?'<p class="muted">برای دیدن همه، در تب «گوشی‌ها» جستجو کن.</p>':'');
   const docs=LG.docs.filter(d=>d.status==='posted'&&toks.every(t=>lgDocHay(d).includes(t))).sort((a,b)=>a.date<b.date?1:-1);
   if(docs.length)h+=`<h3 style="margin-top:12px">اسناد (${fa(docs.length)})</h3>`+docs.slice(0,15).map(lgDocCard).join('')+(docs.length>15?'<p class="muted">برای دیدن همه، در تب «اسناد» جستجو کن.</p>':'');
   el.innerHTML=h||'<p class="muted" style="margin-top:12px">چیزی پیدا نشد.</p>';
@@ -3085,18 +3086,19 @@ const L_PAY_ACCS=['1101','1102','1103','1104','3101','3102','3103','2101','2103'
 function lgPayOpts(sel){const s=lCanon(sel);return [...lBankActive(s),'3101','3102','3103','1301'].map(c=>`<option value="${c}" ${c===s?'selected':''}>${c==='1301'?'بدهی به طرف‌حساب (نسیه / قرض)':esc(lAccName(LG,c))}</option>`).join('');}
 function lgPartyOpts(sel,id){return `<select id="${id}"><option value="">— طرف‌حساب —</option>${LG.parties.filter(p=>!p.inactive||p.id===sel).map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`;}
 function lgPhoneFields(p){
-  p=p||{brand:'',model:'',color:'',storage:'',cond:'new',battery:'',imei1:'',imei2:'',registry:'unk',warranty:''};
+  p=p||{brand:'',model:'',color:'',storage:'',cond:'new',battery:'',imei1:'',imei2:'',registry:'unk',warranty:'',note:''};
   return `${field('ph_brand','برند',p.brand)}${field('ph_model','مدل',p.model)}${field('ph_color','رنگ',p.color)}${field('ph_storage','حافظه (گیگابایت)',p.storage,'text','inputmode="numeric"')}
   <label for="ph_cond">وضعیت</label><select id="ph_cond" onchange="$('ph_batw').hidden=this.value!=='used'"><option value="new" ${p.cond==='new'?'selected':''}>نو</option><option value="used" ${p.cond==='used'?'selected':''}>کارکرده</option></select>
   <div id="ph_batw" ${p.cond==='used'?'':'hidden'}>${field('ph_battery','سلامت باتری (٪)',p.battery==null?'':p.battery,'text','inputmode="numeric"')}</div>
-  ${field('ph_imei1','IMEI اول (۱۵ رقم)',p.imei1,'text','inputmode="numeric" class="ltr"')}${field('ph_imei2','IMEI دوم (اختیاری)',p.imei2,'text','inputmode="numeric" class="ltr"')}
+  ${field('ph_imei1','IMEI اول (۱۵ رقم، اختیاری)',p.imei1,'text','inputmode="numeric" class="ltr"')}${field('ph_imei2','IMEI دوم (اختیاری)',p.imei2,'text','inputmode="numeric" class="ltr"')}
   <label for="ph_reg">رجیستری</label><select id="ph_reg">${Object.entries(L_REG).map(([k,v])=>`<option value="${k}" ${k===p.registry?'selected':''}>${v}</option>`).join('')}</select>
-  ${field('ph_war','گارانتی',p.warranty)}`;
+  ${field('ph_war','گارانتی',p.warranty)}${area('ph_note','توضیحات',p.note||'')}`;
 }
 function lgReadPhone(extra){
   return {...(extra||{}),brand:$('ph_brand').value,model:$('ph_model').value,color:$('ph_color').value,storage:digits($('ph_storage').value),cond:$('ph_cond').value,
-    battery:digits($('ph_battery').value),imei1:digits($('ph_imei1').value),imei2:digits($('ph_imei2').value),registry:$('ph_reg').value,warranty:$('ph_war').value};
+    battery:digits($('ph_battery').value),imei1:digits($('ph_imei1').value),imei2:digits($('ph_imei2').value),registry:$('ph_reg').value,warranty:$('ph_war').value,note:$('ph_note').value};
 }
+const lgImeiTxt=p=>p.imei1?'IMEI '+fa(p.imei1):'بدون IMEI';
 function lgPhoneLabel(p){return [p.brand,p.model,p.storage?fa(p.storage)+'GB':'',p.color].filter(Boolean).join(' ');}
 let lgPhBrand='',lgPhSort='new';
 function lgPhInfo(p){
@@ -3107,7 +3109,7 @@ function lgPhInfo(p){
 }
 function lgPhoneHay(p){
   const i=lgPhInfo(p);
-  return digits([p.brand,p.model,p.color,p.storage,p.storage?p.storage+'gb':'',p.imei1,p.imei2||'',p.cond==='used'?'کارکرده':'نو',p.warranty||'',
+  return digits([p.brand,p.model,p.color,p.storage,p.storage?p.storage+'gb':'',p.imei1,p.imei2||'',p.cond==='used'?'کارکرده':'نو',p.warranty||'',p.note||'',
     p.status==='sold'?'فروخته':'موجود',i.cust,i.src&&i.src.no?'سند '+i.src.no:'',i.sd&&i.sd.no?'سند '+i.sd.no:'',i.acq?jshow(i.acq):'',i.sold?jshow(i.sold):''].join(' ')).toLowerCase();
 }
 function lgPhFilterSet(k){lgPhFilter=k;lgPhBrand='';render();}
@@ -3144,7 +3146,7 @@ function lgPhones(){
   h+=list.map(p=>{
     const i=lgPhInfo(p),s=p.status==='sold'?lPhoneSale(LG,p.id):null;
     return `<div class="card card-clickable" onclick="lgPhoneView('${p.id}')"><div class="row spread"><strong>${esc(lgPhoneLabel(p))}</strong><span class="badge ${p.status==='sold'?'late':'ok'}">${p.status==='sold'?'فروخته شد':'موجود'}</span></div>
-    <div class="muted">${p.cond==='used'?'کارکرده'+(p.battery?' · باتری '+fa(p.battery)+'٪':''):'نو'} · IMEI ${esc(fa(p.imei1))}</div>
+    <div class="muted">${p.cond==='used'?'کارکرده'+(p.battery?' · باتری '+fa(p.battery)+'٪':''):'نو'} · ${esc(lgImeiTxt(p))}</div>${p.note?`<div class="muted">${esc(p.note)}</div>`:''}
     ${p.status==='stock'?`<div class="muted">${i.acq?'وارد شده '+jshow(i.acq)+' · ':''}${fa(i.days)} روز در انبار</div>`:`<div class="muted">${i.cust?'خریدار: '+esc(i.cust)+' · ':''}${i.sold?'فروش '+jshow(i.sold):''}</div>`}
     <div class="link-row"><span>بها: <b>${money(p.cost)}</b>${s?` · سود: <b class="${s.profit<0?'neg':'pos'}">${money(s.profit)}</b>`:''}</span><span class="arrow">›</span></div>
     <div class="row" style="margin-top:6px"><button class="plain" style="padding:5px 10px;min-height:32px;font-size:12px" onclick="event.stopPropagation();lgDocView('${p.src}')">سند ${i.src&&i.src.no?'خرید '+fa(i.src.no):'خرید'}</button>${p.saleDoc?`<button class="plain" style="padding:5px 10px;min-height:32px;font-size:12px" onclick="event.stopPropagation();lgDocView('${p.saleDoc}')">سند فروش ${i.sd&&i.sd.no?fa(i.sd.no):''}</button>`:''}</div></div>`;
@@ -3157,7 +3159,7 @@ function lgPhoneView(id){
   const costs=(p.costs||[]).filter(c=>c.a>0).map(c=>`<div class="muted">+ ${esc(c.d||'هزینه')}: ${money(c.a)}</div>`).join('');
   modal(lgPhoneLabel(p),`<p>وضعیت: <b>${p.status==='sold'?'فروخته‌شده':'موجود در انبار'}</b></p>
   <p>${p.cond==='used'?'کارکرده'+(p.battery?' · سلامت باتری '+fa(p.battery)+'٪':''):'نو'} · رجیستری: ${L_REG[p.registry]}${p.warranty?' · گارانتی: '+esc(p.warranty):''}</p>
-  <p class="ltr">IMEI 1: ${esc(p.imei1)}${p.imei2?'<br>IMEI 2: '+esc(p.imei2):''}</p>
+  <p class="ltr">${p.imei1?'IMEI 1: '+esc(p.imei1):'بدون IMEI'}${p.imei2?'<br>IMEI 2: '+esc(p.imei2):''}</p>${p.note?`<p>توضیحات: ${esc(p.note)}</p>`:''}
   <p>بهای تمام‌شده: <b>${money(p.cost)}</b></p>${p.price!==undefined?`<div class="muted">قیمت خرید: ${money(p.price)}</div>`:''}${costs}
   ${p.status==='sold'?(()=>{const s=lPhoneSale(LG,p.id);return s?`<p>فروش: <b>${money(s.price)}</b> · سود: <b>${money(s.profit)}</b>${s.multi?' <span class="muted">(در فروش چندگوشی)</span>':''}</p>`:'';})():''}<div class="row" style="margin-top:12px">${p.status==='stock'?`<button onclick="lgSaleForm('','${p.id}')">فروش این گوشی</button>`:''}<button class="plain" onclick="lgDocView('${p.src}')">سند ${src?(src.no?fa(src.no):''):''} (${src?L_DOC_TYPES[src.type]:''})</button>${p.saleDoc?`<button class="plain" onclick="lgDocView('${p.saleDoc}')">سند فروش</button>`:''}</div>`);
 }
@@ -3212,19 +3214,52 @@ function lgPurchaseSave(){
     else{const d=lNewDraft(LG,'purchase',{date,desc,lines,meta:{phone:ph}});lPost(LG,d.id);}
   });
 }
+let exPays=[];
 function lgExpenseForm(){
+  exPays=[{a:lgPref('exPay','1102'),p:null,amt:0}];
   modal('ثبت هزینه',`${lgNoBadge(false)}<label for="exc">نوع هزینه</label><select id="exc"><option value="6101">هزینه‌های عملیاتی</option><option value="6102" ${lgPref('exCat','')==='6102'?'selected':''}>کارمزد بانک و کارت‌خوان</option></select>
-  ${amountField('exm','مبلغ')}<label for="exp">پرداخت از</label><select id="exp" onchange="$('exq').hidden=!L_ACC[this.value].party">${lgPayOpts(lgPref('exPay','1102'))}</select>
-  <div id="exq" ${L_ACC[lgPref('exPay','1102')]&&L_ACC[lgPref('exPay','1102')].party?'':'hidden'}>${lgPartyOpts('','exqp')}</div><label>تاریخ</label>${dateInputRow('exdt',today())}${field('exs','شرح','')}
+  ${amountField('exm','مبلغ کل هزینه')}
+  <h2 style="margin-top:14px;font-size:15px">پرداخت از کجا؟</h2><div id="expay"></div><button class="secondary" onclick="lgExAddPay()">+ پرداخت از حساب دیگر</button>
+  <div class="card" id="exsum"></div>
+  <label>تاریخ</label>${dateInputRow('exdt',today())}${field('exs','شرح','')}
   ${actions('lgExpenseDo()','ثبت هزینه')}`);
-  attachAmountFormatter('exm');
+  attachAmountFormatter('exm');$('exm').addEventListener('input',lgExSum);
+  lgExRender();
+}
+function lgExSync(){
+  exPays=exPays.map((r,i)=>$('exa'+i)?{a:$('exa'+i).value,p:$('exp'+i)?$('exp'+i).value||null:null,amt:exPays.length===1?0:lgAmt('exm'+i)}:r);
+}
+function lgExRender(){
+  const one=exPays.length===1;
+  $('expay').innerHTML=exPays.map((r,i)=>`<div class="card oprow"><select id="exa${i}" onchange="lgExSync();exPays[${i}].p=null;lgExRender()">${lgPayOpts(r.a)}</select>${L_ACC[r.a]&&L_ACC[r.a].party?lgPartyOpts(r.p,'exp'+i):''}
+  ${one?'':`<div class="row" style="margin-top:6px;flex-wrap:nowrap"><div class="grow amount-input"><input id="exm${i}" inputmode="numeric" value="${r.amt?Number(r.amt).toLocaleString('en-US'):''}" placeholder="0" oninput="lgExSum()"><span class="unit">تومان</span></div><button class="danger" style="padding:8px 11px" onclick="lgExSync();exPays.splice(${i},1);lgExRender()">×</button></div>`}</div>`).join('');
+  if(!one)exPays.forEach((_,i)=>attachAmountFormatter('exm'+i));
+  lgExSum();
+}
+function lgExSum(){
+  lgExSync();const el=$('exsum');if(!el)return;
+  if(exPays.length===1){el.innerHTML='کل مبلغ از همین حساب پرداخت می‌شود.';return;}
+  const tot=lgAmt('exm'),paid=exPays.reduce((s,r)=>s+r.amt,0),d=tot-paid;
+  el.innerHTML=`مبلغ هزینه: <b>${nf(tot)}</b> · جمع پرداخت‌ها: <b>${nf(paid)}</b><br>`+(d===0&&tot>0?'<span class="ok">پرداخت‌ها کامل است ✓</span>':`<span class="red">${d>0?'پرداخت‌نشده':'اضافه'}: ${nf(Math.abs(d))}</span>`);
+}
+function lgExAddPay(){
+  lgExSync();
+  if(exPays.length===1){exPays[0].amt=lgAmt('exm');}
+  const rest=Math.max(lgAmt('exm')-exPays.reduce((s,r)=>s+r.amt,0),0);
+  exPays.push({a:lgPrefAcc('exPay'),p:null,amt:rest});lgExRender();
 }
 function lgExpenseDo(){
-  const c=$('exc').value,amt=lgAmt('exm'),pa=$('exp').value,pp=$('exqp')?$('exqp').value||null:null,date=readDateRow('exdt'),desc=$('exs').value;
-  if(amt){if(!lgGuard('expense',date,amt,[c,pa].sort().join('|')))return;lgSetPrefs({exCat:c,exPay:pa});}
+  lgExSync();
+  const c=$('exc').value,amt=lgAmt('exm'),date=readDateRow('exdt'),desc=$('exs').value;
+  const rows=exPays.length===1?[{...exPays[0],amt}]:exPays.filter(r=>r.amt>0);
+  const key=[c,...rows.map(r=>r.a)].sort().join('|');
+  if(amt){if(!lgGuard('expense',date,amt,key))return;lgSetPrefs({exCat:c,exPay:rows[0]?rows[0].a:'1102'});}
   changeLedger(()=>{
     if(!amt)throw Error('مبلغ را وارد کنید.');
-    const d=lNewDraft(LG,'expense',{date,desc:desc||lAccName(LG,c),lines:[{a:c,dr:amt,cr:0},{a:pa,dr:0,cr:amt,p:L_ACC[pa].party?pp:null}]});
+    if(!rows.length)throw Error('مبلغ پرداخت هر حساب را وارد کنید.');
+    const paid=rows.reduce((s,r)=>s+r.amt,0);
+    if(paid!==amt)throw Error('جمع پرداخت‌ها ('+nf(paid)+') با مبلغ هزینه ('+nf(amt)+') برابر نیست.');
+    const d=lNewDraft(LG,'expense',{date,desc:desc||lAccName(LG,c),lines:[{a:c,dr:amt,cr:0},...rows.map(r=>({a:r.a,dr:0,cr:r.amt,p:L_ACC[r.a].party?r.p:null}))]});
     lPost(LG,d.id);
   });
 }
@@ -3251,7 +3286,7 @@ function lgOpPhoneSave(i){
   try{
     const p=lPhoneClean({...lgReadPhone(i>=0?{id:opPhones[i].id}:{}),cost:lgAmt('ph_cost')});
     if(!p.cost)throw Error('بهای گوشی را وارد کنید.');
-    if(opPhones.some((q,j)=>j!==i&&(q.imei1===p.imei1||q.imei1===p.imei2||(q.imei2&&(q.imei2===p.imei1||q.imei2===p.imei2)))))throw Error('این IMEI قبلاً در همین افتتاحیه آمده است.');
+    if(opPhones.some((q,j)=>j!==i&&((p.imei1&&(q.imei1===p.imei1||q.imei2===p.imei1))||(p.imei2&&(q.imei1===p.imei2||q.imei2===p.imei2)))))throw Error('این IMEI قبلاً در همین افتتاحیه آمده است.');
     if(i>=0)opPhones[i]=p;else opPhones.push(p);
     lgOpPhoneBack();
   }catch(e){alert(e.message);}
@@ -3400,11 +3435,11 @@ function lgSaleInfo(d){
   const c=m.contract,all=lPhones(LG);
   const link=(id,label,sub)=>{const ok=all.some(p=>p.id===id);return `<div class="${ok?'card-clickable':''}" ${ok?`onclick="lgPhoneView('${id}')"`:''} style="margin:4px 0"><b>${esc(label)}</b>${sub?`<div class="muted">${sub}</div>`:''}</div>`;};
   const cust=m.customer?lPartyById(LG,m.customer):null;
-  const itemsH=m.items.map(it=>{const sp=all.find(p=>p.id===it.phone);const pr=it.price!==undefined?it.price:m.price;return sp?link(sp.id,lgPhoneLabel(sp),'IMEI '+esc(fa(sp.imei1))+' · بها '+money(sp.cost)+' · فروش '+money(pr)+' · سود '+money(pr-sp.cost)):'';}).join('');
+  const itemsH=m.items.map(it=>{const sp=all.find(p=>p.id===it.phone);const pr=it.price!==undefined?it.price:m.price;return sp?link(sp.id,lgPhoneLabel(sp),esc(lgImeiTxt(sp))+' · بها '+money(sp.cost)+' · فروش '+money(pr)+' · سود '+money(pr-sp.cost)):'';}).join('');
   let h=`<div class="card"><div class="muted">${m.items.length>1?'گوشی‌های فروخته‌شده':'گوشی فروخته‌شده'}</div>${itemsH}${cust?`<div class="muted" style="margin-top:6px">مشتری: <b>${esc(cust.name)}</b></div>`:''}</div>`;
   if(m.pays&&m.pays.length)h+=`<div class="card"><div class="muted">دریافتی‌ها</div>${m.pays.map(x=>`<div class="row spread"><span>${esc(x.a==='1301'?'دریافت‌نشده (طلب از مشتری)':lAccName(LG,x.a))}</span><b>${money(x.amt)}</b></div>`).join('')}</div>`;
   if(m.sides&&m.sides.length)h+=`<div class="card"><div class="muted">جانبی (بستانکار جاری امیر و متین)</div>${m.sides.map(x=>{const sp=x.phone?all.find(p=>p.id===x.phone):null;return `<div class="row spread"><span>${sp?'جانبی گوشی '+esc(lgPhoneLabel(sp)):'جانبی'}</span><b>${money(x.amt)}</b></div>`;}).join('')}</div>`;
-  if(m.tradeins&&m.tradeins.length)h+=`<div class="card"><div class="muted">گوشی‌های تعویضی (وارد انبار شد)</div>${m.tradeins.map(t=>link(t.id,lgPhoneLabel(t),'IMEI '+esc(fa(t.imei1))+(t.cond==='used'&&t.battery?' · باتری '+fa(t.battery)+'٪':'')+' · ارزش توافقی '+money(t.cost))).join('')}</div>`;
+  if(m.tradeins&&m.tradeins.length)h+=`<div class="card"><div class="muted">گوشی‌های تعویضی (وارد انبار شد)</div>${m.tradeins.map(t=>link(t.id,lgPhoneLabel(t),esc(lgImeiTxt(t))+(t.cond==='used'&&t.battery?' · باتری '+fa(t.battery)+'٪':'')+' · ارزش توافقی '+money(t.cost))).join('')}</div>`;
   h+=`<div class="card"><div>قیمت فروش: <b>${money(m.price)}</b></div><div>بهای ${m.items.length>1?'گوشی‌ها':'گوشی'}: ${money(m.cost)}</div><div>سود فروش: <b>${money(m.price-m.cost)}</b></div>`;
   if(c)h+=`<hr><div>قرارداد ${fa(c.months)} ماهه · مبلغ اقساطی ${money(c.F)}</div><div>جمع اقساط: ${money(c.T)}</div><div>قیمت خرید قرارداد: ${money(c.C)}</div><div>درآمد واگذاری: <b>${money(c.C-c.F)}</b></div>`;
   return h+'</div>';
@@ -3670,7 +3705,7 @@ function lgShareTrial(){
 }
 function lgMore(){
   const st=LG.settings;
-  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۴٫۲</p>
+  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۵٫۰</p>
   ${themeCard()}${synCard()}
   <div class="card"><b>شرکا و درصدها</b><p class="muted">${LG.partners.map(p=>esc(p.name)+' '+fa(lSharesAt(LG,today())[p.id])+'٪').join(' · ')}</p><button onclick="lgPartners()">مدیریت شرکا</button></div>
   <div class="card"><b>حساب‌های بانکی و صندوق</b><p class="muted">افزودن، تغییر نام یا غیرفعال‌کردن حساب‌های بانکی</p><button onclick="lgBanks()">مدیریت حساب‌ها</button></div>
