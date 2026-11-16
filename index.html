@@ -1576,7 +1576,7 @@ function settingsPage(){
   <button class="danger" onclick="trashPage()">باز کردن سطل بازیافت</button></div>
 
   <div class="card"><h3>دربارهٔ این نسخه</h3>
-  <p>اقساطیار پلاس ۱٫۲۵٫۱ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
+  <p>اقساطیار پلاس ۱٫۲۶٫۰ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
   <p class="muted">شماره قرارداد از ۱۰۱ شروع می‌شود. قالب‌های پیامک قابل تنظیم‌اند.</p></div>`;
 }
 function saveSmsTemplates(){
@@ -3705,7 +3705,7 @@ function lgShareTrial(){
 }
 function lgMore(){
   const st=LG.settings;
-  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۵٫۱</p>
+  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۶٫۰</p>
   ${themeCard()}${synCard()}
   <div class="card"><b>شرکا و درصدها</b><p class="muted">${LG.partners.map(p=>esc(p.name)+' '+fa(lSharesAt(LG,today())[p.id])+'٪').join(' · ')}</p><button onclick="lgPartners()">مدیریت شرکا</button></div>
   <div class="card"><b>حساب‌های بانکی و صندوق</b><p class="muted">افزودن، تغییر نام یا غیرفعال‌کردن حساب‌های بانکی</p><button onclick="lgBanks()">مدیریت حساب‌ها</button></div>
@@ -3806,13 +3806,15 @@ function esCalc(c,st){
   const R=sel.reduce((s,i)=>s+left(i),0),r=sel.length;
   const d=assumed?Math.max(0,esDays(st.date,assumed)):0;
   const s=(Number(st.rs)||0)/100;
-  // هر قسط جداگانه و به‌اندازهٔ فاصلهٔ خودش تا سررسید تخفیف می‌گیرد (ماه = ۳۱ روز، به نفع ما)
+  // بلوک: قسط‌های انتخابی پشت‌سرهم از نزدیک‌ترین قسط پرداخت‌نشده ← فرمول فروش معکوس: مبلغ/(۱+تعداد×نرخ)
+  // غیر بلوک (از آخر یا وسط): هر قسط جداگانه به‌اندازهٔ ماه‌های خودش تا سررسید (ماه = ۳۱ روز، به نفع ما)
+  const block=sel.length>0&&sel.every((i,k)=>i===elig[k]);
   const t0=st.exact?st.date:(assumed||st.date);
   const mo=i=>Math.max(0,esDays(t0,i.due))/31;
-  const reff=R>0?sel.reduce((a,i)=>a+left(i)*mo(i),0)/R:0;
+  const reff=block?(st.exact?r+d/30:r):(R>0?sel.reduce((a,i)=>a+left(i)*mo(i),0)/R:0);
   const F=T/(1+n*s),C=T/(1+n*(Number(st.rb)||0)/100);
   const P=F*R/T;
-  const raw=R>0?sel.reduce((a,i)=>a+left(i)/(1+mo(i)*s),0):0;
+  const raw=R>0?(block?R/(1+reff*s):sel.reduce((a,i)=>a+left(i)/(1+mo(i)*s),0)):0;
   let auto=Math.ceil(raw/10000-1e-9)*10000;auto=Math.min(R,Math.max(auto,Math.ceil(P)));
   const manual=!!st.manual&&Number(st.S)>0;
   const S=R===0?0:(manual?Math.min(R,Math.round(Number(st.S))):auto);
@@ -3823,7 +3825,7 @@ function esCalc(c,st){
   const Dr=Math.round(C*R/T);
   const forgiveC=Math.max(0,Dr-company);
   const discRuhi=(R-Dr)-ruhi;
-  return {n,T,F,C,R,r,assumed,d,reff,P,raw,auto,S,wc,company,ruhi,Dr,forgiveC,discRuhi,late,elig,sel,left,manual};
+  return {n,T,F,C,R,r,block,assumed,d,reff,P,raw,auto,S,wc,company,ruhi,Dr,forgiveC,discRuhi,late,elig,sel,left,manual};
 }
 function lgEarlySettle(cid){
   const c=contract(cid);if(!c)return;
@@ -3856,7 +3858,8 @@ function esSummary(x){
   const pct=x.R>0?Math.round((x.R-x.S)/x.R*1000)/10:0;
   let h=R_('تعداد قسط انتخاب‌شده',fa(x.r))+R_('جمع قسط‌های باقی‌مانده',money(x.R))
    +R_('تاریخ فرضی تسویه',x.assumed?jshow(ES.exact?ES.date:x.assumed):'—')
-   +R_('میانگین ماه تا سررسید',fa(String(Math.round(x.reff*100)/100)))
+   +R_('روش محاسبه',x.block?'پشت‌سرهم از نزدیک‌ترین قسط':'هر قسط جدا (بر اساس ماه باقی‌مانده)')
+   +R_(x.block?'ماه‌های محاسبه':'میانگین ماه تا سررسید',fa(String(Math.round(x.reff*100)/100)))
    +R_('مبلغ تسویه برای مشتری',money(x.S))
    +R_('تخفیف مشتری',money(x.R-x.S)+' ('+fa(String(pct))+'٪)')+'<hr>'
    +R_('سهم شراکت از مبلغ دریافتی',money(x.company))
@@ -3875,7 +3878,7 @@ function esRender(){
   <label>تاریخ تسویه (روز مراجعهٔ مشتری)</label>${dateInputRow('esd',ES.date)}
   <div class="card" style="margin-top:8px"><label style="display:flex;gap:8px;align-items:flex-start;margin:0"><input type="checkbox" id="esx" style="width:auto;margin-top:4px" ${ES.exact?'checked':''} onchange="esUpd()"><span><b>مبنای محاسبه: روز واقعی تسویه (تغییر درصد تخفیف)</b><br><span class="muted">بدون تیک، فرض می‌شود مشتری از اولین سررسید بعدی (${x.assumed?jshow(x.assumed):'—'}) تسویه می‌کند و ماه‌ها فقط به تعداد قسط‌های انتخاب‌شده است. با تیک، ${fa(x.d)} روز فاصلهٔ روز واقعی تا آن سررسید هم به مدت اضافه می‌شود؛ در نتیجه درصد تخفیف بیشتر و مبلغ تسویه کمتر می‌شود.</span></span></label></div>
   ${x.late.length?`<div class="card"><b class="red">قسط‌های معوق (${fa(x.late.length)})</b><div class="muted">این‌ها مشمول تخفیف نیستند و باید با «ثبت دریافت» کامل پرداخت شوند: ${x.late.map(i=>jshow(i.due)+' · '+money(x.left(i))).join('، ')}</div></div>`:''}
-  <h3 style="margin-top:12px">قسط‌های قابل تسویه</h3>${rows||empty('قسط قابل تسویه‌ای نیست.')}
+  <h3 style="margin-top:12px">قسط‌های قابل تسویه</h3><p class="muted" style="margin:0 0 6px">اگر از نزدیک‌ترین قسط پشت‌سرهم انتخاب کنید، تخفیف بر اساس تعداد قسط است؛ اگر از آخر یا وسط انتخاب کنید، هر قسط جدا بر اساس ماه‌های باقی‌مانده تا سررسیدش.</p>${rows||empty('قسط قابل تسویه‌ای نیست.')}
   <div class="grid" style="margin-top:8px">${field('esrs','نرخ ماهانهٔ اقساط (٪)',ES.rs,'text','inputmode="decimal" oninput="esUpd()"')}${field('esrb','نرخ خرید قرارداد روحی (٪)',ES.rb,'text','inputmode="decimal" oninput="esUpd()"')}</div>
   <div class="card" id="essum" style="margin-top:10px"></div>
   ${amountField('esS','مبلغ دریافتی از مشتری (قابل ویرایش)',x.S)}
