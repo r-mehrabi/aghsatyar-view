@@ -1576,7 +1576,7 @@ function settingsPage(){
   <button class="danger" onclick="trashPage()">باز کردن سطل بازیافت</button></div>
 
   <div class="card"><h3>دربارهٔ این نسخه</h3>
-  <p>اقساطیار پلاس ۱٫۲۴٫۱ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
+  <p>اقساطیار پلاس ۱٫۲۴٫۲ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
   <p class="muted">شماره قرارداد از ۱۰۱ شروع می‌شود. قالب‌های پیامک قابل تنظیم‌اند.</p></div>`;
 }
 function saveSmsTemplates(){
@@ -2946,7 +2946,7 @@ const L_TEMPLATES=[
  {t:'شریک بدهی را از حساب شخصی خود پرداخت کرد',d:'پرداخت توسط شریک',r:[['1301','D',1],['3103','C',0]]}
 ];
 function lgAccOptions(sel,all){
-  return L_ACCOUNTS.filter(a=>(!a.inactive||a.code===sel)&&(all?a.type!=='closing':!['rev','exp','contra','closing'].includes(a.type))).map(a=>`<option value="${a.code}" ${a.code===sel?'selected':''}>${esc(lAccName(LG,a.code))}</option>`).join('');
+  return L_ACCOUNTS.filter(a=>(!a.inactive||a.code===sel)&&(all?a.type!=='closing':!['rev','exp','contra','closing'].includes(a.type))).sort((x,y)=>(y.code==='1301')-(x.code==='1301')).map(a=>`<option value="${a.code}" ${a.code===sel?'selected':''}>${esc(lAccName(LG,a.code))}</option>`).join('');
 }
 function lgOpRowHtml(r,i){
   const a=L_ACC[r.a];
@@ -3318,7 +3318,7 @@ function lgSaleRender(){
   ${SL.items.map((r,i)=>`<div class="card oprow"><select id="slph${i}" onchange="lgSlSync();lgSaleRender()"><option value="">— انتخاب گوشی —</option>${stockAll.filter(p=>p.id===r.phone||!chosen.includes(p.id)).map(p=>`<option value="${p.id}" ${p.id===r.phone?'selected':''}>${esc(lgPhoneLabel(p))} · بها ${nf(p.cost)}</option>`).join('')}</select>
   <div class="row" style="margin-top:6px;flex-wrap:nowrap"><div class="grow amount-input"><input id="slpr${i}" inputmode="numeric" value="${r.price?Number(r.price).toLocaleString('en-US'):''}" placeholder="قیمت فروش این گوشی" oninput="lgSlPreview()"><span class="unit">تومان</span></div>${SL.items.length>1?`<button class="danger" style="padding:8px 11px" onclick="lgSlSync();SL.items.splice(${i},1);lgSaleRender()">×</button>`:''}</div></div>`).join('')}
   <button class="secondary" onclick="lgSlSync();SL.items.push({phone:'',price:0});lgSaleRender()">+ گوشی دیگر</button>
-  <label for="slcust">مشتری</label><select id="slcust" onchange="lgSlPreview()"><option value="">— بدون طرف‌حساب —</option>${LG.parties.filter(p=>p.kind==='customer'||p.id===SL.customer).map(p=>`<option value="${p.id}" ${p.id===SL.customer?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+  <label for="slcust">مشتری</label><select id="slcust" onchange="lgSlPreview()"><option value="">— بدون طرف‌حساب —</option>${LG.parties.filter(p=>!p.inactive||p.id===SL.customer).slice().sort((x,y)=>((y.kind==='customer')-(x.kind==='customer'))).map(p=>`<option value="${p.id}" ${p.id===SL.customer?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
   <label>تاریخ فروش</label>${dateInputRow('sld',SL.date)}
   <h2 style="margin-top:14px;font-size:15px">دریافتی‌ها</h2>
   ${SL.pays.map((r,i)=>`<div class="card oprow"><select id="sla${i}" onchange="lgSlSync();SL.pays[${i}].p=null;lgSaleRender()">${lgRecvOpts(r.a)}</select>${L_ACC[r.a].party?lgPartyOpts(r.p,'slp'+i):''}
@@ -3670,7 +3670,7 @@ function lgShareTrial(){
 }
 function lgMore(){
   const st=LG.settings;
-  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۴٫۱</p>
+  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۴٫۲</p>
   ${themeCard()}${synCard()}
   <div class="card"><b>شرکا و درصدها</b><p class="muted">${LG.partners.map(p=>esc(p.name)+' '+fa(lSharesAt(LG,today())[p.id])+'٪').join(' · ')}</p><button onclick="lgPartners()">مدیریت شرکا</button></div>
   <div class="card"><b>حساب‌های بانکی و صندوق</b><p class="muted">افزودن، تغییر نام یا غیرفعال‌کردن حساب‌های بانکی</p><button onclick="lgBanks()">مدیریت حساب‌ها</button></div>
@@ -3711,7 +3711,7 @@ function lgSetShares(){
   const d=readDateRow('shd');changeLedger(()=>lSetShares(LG,d,pct));
 }
 function lgParties(){
-  const rows=LG.parties.map(p=>{const t=lPartyTotals(LG,p.id);return `<div class="card"><div class="row spread"><b>${esc(p.name)}</b><span class="badge ${p.inactive?'warn':''}">${p.inactive?'غیرفعال':lgNetBadge(lPartyLedger(LG,p.id).net)}</span></div>
+  const rows=LG.parties.slice().sort((x,y)=>(!!x.inactive)-(!!y.inactive)).map(p=>{const t=lPartyTotals(LG,p.id);return `<div class="card"><div class="row spread"><b>${esc(p.name)}</b><span class="badge ${p.inactive?'warn':''}">${p.inactive?'غیرفعال':lgNetBadge(lPartyLedger(LG,p.id).net)}</span></div>
   <div class="muted">${esc(fa(p.phone))}</div>
   <div class="row" style="margin-top:8px"><button class="secondary" onclick="lgOpenParty('${p.id}')">حساب</button><button class="plain" onclick="lgPartyForm('${p.id}')">ویرایش</button><button class="plain" onclick="changeLedgerKeep(()=>lToggleParty(LG,'${p.id}'))">${p.inactive?'فعال‌سازی':'غیرفعال'}</button></div></div>`;}).join('');
   modal('طرف‌حساب‌ها',`<button onclick="lgPartyForm('')">+ طرف‌حساب جدید</button><div style="margin-top:12px">${rows||empty('هنوز طرف‌حسابی ثبت نشده است.')}</div>`);
