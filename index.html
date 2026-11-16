@@ -1576,7 +1576,7 @@ function settingsPage(){
   <button class="danger" onclick="trashPage()">باز کردن سطل بازیافت</button></div>
 
   <div class="card"><h3>دربارهٔ این نسخه</h3>
-  <p>اقساطیار پلاس ۱٫۲۵٫۰ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
+  <p>اقساطیار پلاس ۱٫۲۵٫۱ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
   <p class="muted">شماره قرارداد از ۱۰۱ شروع می‌شود. قالب‌های پیامک قابل تنظیم‌اند.</p></div>`;
 }
 function saveSmsTemplates(){
@@ -3705,7 +3705,7 @@ function lgShareTrial(){
 }
 function lgMore(){
   const st=LG.settings;
-  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۵٫۰</p>
+  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۵٫۱</p>
   ${themeCard()}${synCard()}
   <div class="card"><b>شرکا و درصدها</b><p class="muted">${LG.partners.map(p=>esc(p.name)+' '+fa(lSharesAt(LG,today())[p.id])+'٪').join(' · ')}</p><button onclick="lgPartners()">مدیریت شرکا</button></div>
   <div class="card"><b>حساب‌های بانکی و صندوق</b><p class="muted">افزودن، تغییر نام یا غیرفعال‌کردن حساب‌های بانکی</p><button onclick="lgBanks()">مدیریت حساب‌ها</button></div>
@@ -3805,12 +3805,15 @@ function esCalc(c,st){
   const sel=st.sel?elig.filter(i=>st.sel.includes(i.id)):elig;
   const R=sel.reduce((s,i)=>s+left(i),0),r=sel.length;
   const d=assumed?Math.max(0,esDays(st.date,assumed)):0;
-  const reff=st.exact?r+d/30:r;
   const s=(Number(st.rs)||0)/100;
+  // هر قسط جداگانه و به‌اندازهٔ فاصلهٔ خودش تا سررسید تخفیف می‌گیرد (ماه = ۳۱ روز، به نفع ما)
+  const t0=st.exact?st.date:(assumed||st.date);
+  const mo=i=>Math.max(0,esDays(t0,i.due))/31;
+  const reff=R>0?sel.reduce((a,i)=>a+left(i)*mo(i),0)/R:0;
   const F=T/(1+n*s),C=T/(1+n*(Number(st.rb)||0)/100);
   const P=F*R/T;
-  const raw=R>0?R/(1+reff*s):0;
-  let auto=Math.round(raw/1000)*1000;auto=Math.min(R,Math.max(auto,Math.ceil(P)));
+  const raw=R>0?sel.reduce((a,i)=>a+left(i)/(1+mo(i)*s),0):0;
+  let auto=Math.ceil(raw/10000-1e-9)*10000;auto=Math.min(R,Math.max(auto,Math.ceil(P)));
   const manual=!!st.manual&&Number(st.S)>0;
   const S=R===0?0:(manual?Math.min(R,Math.round(Number(st.S))):auto);
   const wc=T>F?Math.min(1,Math.max(0,(C-F)/(T-F))):0;
@@ -3853,7 +3856,7 @@ function esSummary(x){
   const pct=x.R>0?Math.round((x.R-x.S)/x.R*1000)/10:0;
   let h=R_('تعداد قسط انتخاب‌شده',fa(x.r))+R_('جمع قسط‌های باقی‌مانده',money(x.R))
    +R_('تاریخ فرضی تسویه',x.assumed?jshow(ES.exact?ES.date:x.assumed):'—')
-   +R_('ماه‌های محاسبه',fa(String(Math.round(x.reff*100)/100)))
+   +R_('میانگین ماه تا سررسید',fa(String(Math.round(x.reff*100)/100)))
    +R_('مبلغ تسویه برای مشتری',money(x.S))
    +R_('تخفیف مشتری',money(x.R-x.S)+' ('+fa(String(pct))+'٪)')+'<hr>'
    +R_('سهم شراکت از مبلغ دریافتی',money(x.company))
