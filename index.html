@@ -350,11 +350,22 @@ let reportType='summary',reportFrom='',reportTo='',reportCustomerId='',reportCus
 let lastReport={title:'',headers:[],rows:[],totals:null};
 let formState={};
 
-function customer(id){return db.customers.find(x=>x.id===id);}
-function contract(id){return db.contracts.find(x=>x.id===id);}
+// نمایهٔ حافظه‌ای برای سرعت: جمع پرداخت هر قسط و جست‌وجوی مشتری/قرارداد (با هر تغییر داده دوباره ساخته می‌شود)
+let _ix=null,_ixOff=0;
+function ix(){
+  if(_ix&&_ix.db===db)return _ix;
+  const paid=new Map();
+  for(const p of db.payments){if(isLive(p))paid.set(p.installmentId,(paid.get(p.installmentId)||0)+p.amount);}
+  return _ix={db,paid,cust:new Map(db.customers.map(c=>[c.id,c])),con:new Map(db.contracts.map(c=>[c.id,c]))};
+}
+function customer(id){return _ixOff?db.customers.find(x=>x.id===id):ix().cust.get(id);}
+function contract(id){return _ixOff?db.contracts.find(x=>x.id===id):ix().con.get(id);}
 function activeContracts(){return db.contracts.filter(c=>isLive(c)&&isLive(customer(c.customerId)||{deletedAt:1}));}
 function activePayments(){const ids=new Set(activeContracts().map(c=>c.id));return db.payments.filter(p=>isLive(p)&&p.kind!=='disc'&&ids.has(p.contractId));}
-function paid(i,except=''){return db.payments.filter(p=>isLive(p)&&p.installmentId===i.id&&p.id!==except).reduce((s,p)=>s+p.amount,0);}
+function paid(i,except=''){
+  if(_ixOff||except)return db.payments.filter(p=>isLive(p)&&p.installmentId===i.id&&p.id!==except).reduce((s,p)=>s+p.amount,0);
+  return ix().paid.get(i.id)||0;
+}
 function balance(c){return c.installments.reduce((s,i)=>s+Math.max(0,i.amount-paid(i)),0);}
 function contractTotal(c){return c.installments.reduce((s,i)=>s+i.amount,0);}
 function installments(){
@@ -503,13 +514,13 @@ function showToast(msg){
 function change(fn){
   const previous=JSON.stringify(db);
   try{
-    fn();validateData(db);
+    _ixOff++;try{fn();validateData(db);}finally{_ixOff--;_ix=null;}
     if(!Native.save(JSON.stringify(db)))throw Error('ذخیره انجام نشد. فضای خالی گوشی و باز بودن قفل را بررسی کنید.');
     closeModal();render();
     setTimeout(lgAutoSync,0);
     return true;
   }catch(e){
-    db=JSON.parse(previous);
+    db=JSON.parse(previous);_ix=null;
     alert(e.message||'عملیات ناموفق بود.');
     return false;
   }
@@ -632,6 +643,11 @@ function render(){
   $('app').innerHTML=page[tab]();
   enterIfNew();
 }
+// صفحه‌بندی فهرست‌های بلند (سرعت): هر بار ۴۰ مورد، با دکمهٔ «نمایش بیشتر»
+const PG=40;let _lim={k:'',n:PG};
+function lim(){const k=book+'|'+tab+'|'+(typeof lgTab!=='undefined'?lgTab+'|'+lgAcc+'|'+lgParty:'')+'|'+query;if(_lim.k!==k)_lim={k,n:PG};return _lim.n;}
+function moreItems(){_lim.n+=PG;render();}
+function moreBtn(total){const n=Math.min(total,_lim.n);return total>n?`<button class="secondary" style="width:100%;margin:8px 0" onclick="moreItems()">نمایش بیشتر (${fa(n)} از ${fa(total)})</button>`:'';}
 function homePage(){
   const cs=activeContracts(),ins=installments(),now=today();
   const late=ins.filter(x=>x.left>0&&x.i.due<now);
@@ -647,8 +663,8 @@ function homePage(){
   <div class="card row spread"><span>${fa(db.customers.filter(isLive).length)} مشتری</span>
   <span>${fa(cs.length)} قرارداد</span><span>${fa(late.length)} قسط معوق</span></div>
   <h2>پیگیری سررسیدها</h2>${searchBox('جست‌وجوی نام، تلفن یا شمارهٔ قرارداد')}
-  ${[...late,...near].sort((a,b)=>a.i.due.localeCompare(b.i.due))
-    .filter(x=>matches(x.customer.name,x.customer.phone,x.c.number?String(x.c.number):'')).map(dueCard).join('')||empty('سررسید پرداخت‌نشده‌ای در این بازه نیست.')}`;
+  ${(()=>{const dl=[...late,...near].sort((a,b)=>a.i.due.localeCompare(b.i.due)).filter(x=>matches(x.customer.name,x.customer.phone,x.c.number?String(x.c.number):''));
+    return dl.slice(0,lim()).map(dueCard).join('')+moreBtn(dl.length)||empty('سررسید پرداخت‌نشده‌ای در این بازه نیست.');})()}`;
 }
 function dueCard(x){
   return `<div class="card">
@@ -670,10 +686,11 @@ function dueCard(x){
 }
 function customersPage(){
   const list=db.customers.filter(isLive).filter(c=>matches(c.name,c.phone,c.code,c.address,c.note));
+  const byC=new Map();activeContracts().forEach(x=>{if(!byC.has(x.customerId))byC.set(x.customerId,[]);byC.get(x.customerId).push(x);});
   return `<div class="row spread"><h2>مشتریان · ${fa(list.length)}</h2><button onclick="editCustomer()">مشتری جدید</button></div>
   ${searchBox('نام، تلفن، کد ملی یا نشانی')}
-  ${list.map(c=>{
-    const cs=activeContracts().filter(x=>x.customerId===c.id);
+  ${list.slice(0,lim()).map(c=>{
+    const cs=byC.get(c.id)||[];
     return `<div class="card">
     <div class="row spread"><h3>${esc(c.gender==='female'?'خانم ':'آقای ')}${esc(c.name)}</h3><span class="badge">${fa(cs.length)} قرارداد</span></div>
     <div class="muted">${esc(fa(c.phone))}${c.code?' · کد ملی '+esc(fa(c.code)):''}</div>
@@ -687,7 +704,7 @@ function customersPage(){
     <button class="plain" onclick="editCustomer('${c.id}')">ویرایش</button>
     <button class="danger" onclick="trash('customers','${c.id}')">حذف</button>
     </div></div>`;
-  }).join('')||empty()}`;
+  }).join('')||empty()}${moreBtn(list.length)}`;
 }
 function customerContracts(id){
   tab='contracts';detailId=null;query=customer(id).name;render();
@@ -775,7 +792,7 @@ function contractsPage(){
   }).slice().sort((a,b)=>(b.number||0)-(a.number||0));
   return `<div class="row spread"><h2>قراردادها · ${fa(list.length)}</h2><button onclick="editContract()">قرارداد جدید</button></div>
   ${searchBox('شماره قرارداد، مشتری، تلفن یا تاریخ شروع')}
-  ${list.map(c=>{
+  ${list.slice(0,lim()).map(c=>{
     const u=customer(c.customerId),b=balance(c);
     return `<div class="card"><div class="row spread"><h3>قرارداد ${fa(c.number||'—')}</h3>
     <span class="badge">${b?'در جریان':'تسویه‌شده'}</span></div>
@@ -786,7 +803,7 @@ function contractsPage(){
     <div class="row"><button onclick="openContract('${c.id}')">اقساط و دریافت‌ها</button>
     <button class="plain" onclick="editContract('${c.id}')">ویرایش</button>
     <button class="danger" onclick="trash('contracts','${c.id}')">حذف</button></div></div>`;
-  }).join('')||empty()}`;
+  }).join('')||empty()}${moreBtn(list.length)}`;
 }
 function openContract(id){tab='contracts';detailId=id;render();}
 function nextContractNumber(){
@@ -1576,7 +1593,7 @@ function settingsPage(){
   <button class="danger" onclick="trashPage()">باز کردن سطل بازیافت</button></div>
 
   <div class="card"><h3>دربارهٔ این نسخه</h3>
-  <p>اقساطیار پلاس ۱٫۲۶٫۱ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
+  <p>اقساطیار پلاس ۱٫۲۷٫۰ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
   <p class="muted">شماره قرارداد از ۱۰۱ شروع می‌شود. قالب‌های پیامک قابل تنظیم‌اند.</p></div>`;
 }
 function saveSmsTemplates(){
@@ -2853,7 +2870,9 @@ function lgTurnoverPage(code){
   if(a.party&&!lgParty)h+=lgPartyBreakdown(code);
   h+=`<div class="stat mb" style="margin-top:12px"><span>مانده فعلی</span><b>${lgBalTxt({dr:Math.max(last,0),cr:Math.max(-last,0)})}</b></div>`;
   const hd=['سند','تاریخ','شرح','بدهکار','بستانکار','مانده'];
-  const body=rows.map(r=>[{html:`<a href="#" onclick="event.preventDefault();lgDocView('${r.doc.id}')">${fa(r.doc.no)}</a>`},jshow(r.doc.date),fa((r.line.m||r.doc.desc||L_DOC_TYPES[r.doc.type]).slice(0,40)),r.line.dr?nf(r.line.dr):'',r.line.cr?nf(r.line.cr):'',nf(Math.abs(r.bal))+(r.bal>0?' بد':r.bal<0?' بس':'')]);
+  const shown=rows.slice(-lim());
+  const body=shown.map(r=>[{html:`<a href="#" onclick="event.preventDefault();lgDocView('${r.doc.id}')">${fa(r.doc.no)}</a>`},jshow(r.doc.date),fa((r.line.m||r.doc.desc||L_DOC_TYPES[r.doc.type]).slice(0,40)),r.line.dr?nf(r.line.dr):'',r.line.cr?nf(r.line.cr):'',nf(Math.abs(r.bal))+(r.bal>0?' بد':r.bal<0?' بس':'')]);
+  if(rows.length>shown.length)h+=`<p class="muted">آخرین ${fa(shown.length)} گردش از ${fa(rows.length)} نمایش داده شده؛ خروجی PDF و اشتراک همهٔ گردش‌ها را دارند.</p>`+moreBtn(rows.length);
   h+=table(hd,body);
   h+=`<div class="row mb" style="margin-top:12px"><button class="secondary" onclick="lgShareTurnover('${code}')">اشتراک‌گذاری متنی</button><button class="secondary" onclick="lgPrintTurnover('${code}')">خروجی PDF</button></div>`;
   return h;
@@ -2906,7 +2925,7 @@ function lgDocs(){
   return `<div class="row spread mb"><h2>اسناد</h2><div class="row"><button class="secondary" onclick="lgPrintDocs()">PDF</button><button onclick="lgNewDoc()">+ سند جدید</button></div></div>
   <div class="chips mb">${LG_DOC_SORTS.map(([k,v])=>`<button class="chip ${lgDocSort===k?'on':''}" onclick="lgDocSort='${k}';render()">${v}</button>`).join('')}</div>
   ${searchBox('جستجو: نام، شرح، مبلغ، IMEI، شمارهٔ سند…')}
-  ${toks.length?`<p class="muted">${fa(ds.length)} سند پیدا شد.</p>`:''}${ds.map(lgDocCard).join('')||empty(toks.length?'سندی با این مشخصات پیدا نشد.':'هنوز سندی ثبت نشده است.')}`;
+  ${toks.length?`<p class="muted">${fa(ds.length)} سند پیدا شد.</p>`:''}${ds.slice(0,lim()).map(lgDocCard).join('')||empty(toks.length?'سندی با این مشخصات پیدا نشد.':'هنوز سندی ثبت نشده است.')}${moreBtn(ds.length)}`;
 }
 function lgDocView(id){
   const d=lDocById(LG,id);if(!d)return;
@@ -3705,7 +3724,7 @@ function lgShareTrial(){
 }
 function lgMore(){
   const st=LG.settings;
-  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۶٫۱</p>
+  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۷٫۰</p>
   ${themeCard()}${synCard()}
   <div class="card"><b>شرکا و درصدها</b><p class="muted">${LG.partners.map(p=>esc(p.name)+' '+fa(lSharesAt(LG,today())[p.id])+'٪').join(' · ')}</p><button onclick="lgPartners()">مدیریت شرکا</button></div>
   <div class="card"><b>حساب‌های بانکی و صندوق</b><p class="muted">افزودن، تغییر نام یا غیرفعال‌کردن حساب‌های بانکی</p><button onclick="lgBanks()">مدیریت حساب‌ها</button></div>
