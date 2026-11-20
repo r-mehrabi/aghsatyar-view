@@ -1593,7 +1593,7 @@ function settingsPage(){
   <button class="danger" onclick="trashPage()">باز کردن سطل بازیافت</button></div>
 
   <div class="card"><h3>دربارهٔ این نسخه</h3>
-  <p>اقساطیار پلاس ۱٫۲۷٫۱ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
+  <p>اقساطیار پلاس ۱٫۲۷٫۲ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
   <p class="muted">شماره قرارداد از ۱۰۱ شروع می‌شود. قالب‌های پیامک قابل تنظیم‌اند.</p></div>`;
 }
 function saveSmsTemplates(){
@@ -3346,17 +3346,30 @@ function lgSlPreview(){
   const el=$('slsum');if(!el)return;
   const tsum=SL.tins.reduce((s,t)=>s+t.cost,0),paid=SL.pays.reduce((s,r)=>s+r.amt,0),side=SL.sides.reduce((s,r)=>s+(Number(r.amt)||0),0);
   const total=lgSlTotal(),F=total-(paid-side)-tsum;
-  let h=`قیمت فروش${SL.items.length>1?' (جمع '+fa(SL.items.length)+' گوشی)':''}: <b>${nf(total)}</b> · دریافتی: <b>${nf(paid)}</b>${side?` (شامل جانبی ${nf(side)})`:''} · تعویض: <b>${nf(tsum)}</b><br>`;
-  h+=SL.inst?`مبلغ اقساطی: <b>${nf(F)}</b>`:(F===0?'<span class="ok">پرداخت کامل است ✓</span>':`<span class="red">${F>0?'دریافت‌نشده':'اضافه'}: ${nf(Math.abs(F))}</span>`);
+  const R_=(l,v,cls)=>`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:5px 0;font-size:13px"><span>${l}</span><b${cls?` class="${cls}"`:''} style="white-space:nowrap">${v}</b></div>`;
+  const pn=v=>`<span class="${v<0?'red':''}">${nf(v)}</span>`;
+  let h=R_('قیمت نقدی'+(SL.items.length>1?' (جمع '+fa(SL.items.length)+' گوشی)':''),nf(total))
+   +R_('جانبی',side?nf(side):'—')
+   +R_('پرداخت‌ها',nf(paid));
+  if(tsum)h+=R_('گوشی تعویضی',nf(tsum));
+  if(SL.inst){
+    h+=R_('مبلغ اقساطی (باقی‌مانده بعد از پرداخت‌ها)',F>0?nf(F):`<span class="red">${nf(F)}</span>`);
+  }else{
+    const need=total+side-tsum,d=need-paid;
+    h+=d===0&&total>0?'<div class="ok" style="margin:5px 0;font-size:13px">پرداخت‌ها برابر قیمت نقدی + جانبی است ✓</div>'
+      :`<div class="red" style="margin:5px 0;font-size:13px">پرداخت‌ها باید برابر قیمت نقدی + جانبی${tsum?' − تعویض':''} (${nf(need)}) باشد؛ ${d>0?'دریافت‌نشده':'اضافه'}: ${nf(Math.abs(d))}</div>`;
+  }
   try{
     let L2=LG;
     if(SL.doc){L2=JSON.parse(JSON.stringify(LG));const o=lDocById(L2,SL.doc);try{lReverse(L2,SL.doc,'x',SL.date<o.date?o.date:SL.date,true);}catch(e){}}
     const b=lSaleBuild(L2,lgSlInput(),null);
     const c=b.meta.contract;
-    h+=`<br>سود فروش (قیمت − بها): <b>${nf(total-b.meta.cost)}</b>`;
-    if(b.meta.items.length>1)h+=b.meta.items.map(it=>{const ph=lPhones(L2).find(p=>p.id===it.phone);return `<br><span class="muted">${esc(ph?lgPhoneLabel(ph):'')}: سود ${nf(it.price-it.cost)}</span>`;}).join('');
-    if(c)h+=`<br>جمع اقساط: <b>${nf(c.T)}</b> · قیمت خرید قرارداد: <b>${nf(c.C)}</b> · درآمد واگذاری: <b>${nf(c.C-c.F)}</b>`;
-  }catch(e){h+=`<br><span class="muted">${esc(e.message)}</span>`;}
+    h+='<hr style="margin:8px 0">';
+    if(c)h+=R_('جمع اقساط (با سود)',nf(c.T))+R_('قیمت خرید قرارداد',nf(c.C));
+    h+=R_('سود فروش نقدی گوشی (قیمت نقدی − بها)',pn(total-b.meta.cost));
+    if(b.meta.items.length>1)h+=b.meta.items.map(it=>{const ph=L2&&lPhones(L2).find(p=>p.id===it.phone);return `<div class="muted" style="margin:2px 0;font-size:12px">${esc(ph?lgPhoneLabel(ph):'')}: سود ${nf(it.price-it.cost)}</div>`;}).join('');
+    if(c)h+=R_('سود نقد کردن قرارداد (قیمت خرید قرارداد − مبلغ اقساطی)',pn(c.C-c.F));
+  }catch(e){h+=`<div class="muted" style="margin-top:6px">${esc(e.message)}</div>`;}
   el.innerHTML=h;
 }
 function lgSaleForm(docId,phoneId){
@@ -3725,7 +3738,7 @@ function lgShareTrial(){
 }
 function lgMore(){
   const st=LG.settings;
-  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۷٫۱</p>
+  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۷٫۲</p>
   ${themeCard()}${synCard()}
   <div class="card"><b>شرکا و درصدها</b><p class="muted">${LG.partners.map(p=>esc(p.name)+' '+fa(lSharesAt(LG,today())[p.id])+'٪').join(' · ')}</p><button onclick="lgPartners()">مدیریت شرکا</button></div>
   <div class="card"><b>حساب‌های بانکی و صندوق</b><p class="muted">افزودن، تغییر نام یا غیرفعال‌کردن حساب‌های بانکی</p><button onclick="lgBanks()">مدیریت حساب‌ها</button></div>
