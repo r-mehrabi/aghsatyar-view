@@ -1593,7 +1593,7 @@ function settingsPage(){
   <button class="danger" onclick="trashPage()">باز کردن سطل بازیافت</button></div>
 
   <div class="card"><h3>دربارهٔ این نسخه</h3>
-  <p>اقساطیار پلاس ۱٫۲۷٫۰ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
+  <p>اقساطیار پلاس ۱٫۲۷٫۱ (بر پایهٔ اقساطیار ۲٫۶) · آفلاین · مبالغ به تومان</p>
   <p class="muted">شماره قرارداد از ۱۰۱ شروع می‌شود. قالب‌های پیامک قابل تنظیم‌اند.</p></div>`;
 }
 function saveSmsTemplates(){
@@ -3238,9 +3238,10 @@ function lgExpenseForm(){
   exPays=[{a:lgPref('exPay','1102'),p:null,amt:0}];
   modal('ثبت هزینه',`${lgNoBadge(false)}<label for="exc">نوع هزینه</label><select id="exc"><option value="6101">هزینه‌های عملیاتی</option><option value="6102" ${lgPref('exCat','')==='6102'?'selected':''}>کارمزد بانک و کارت‌خوان</option></select>
   ${amountField('exm','مبلغ کل هزینه')}
+  ${area('exs','شرح هزینه (مثلاً: کرایهٔ مغازه آبان، خرید کارتن…)','')}
   <h2 style="margin-top:14px;font-size:15px">پرداخت از کجا؟</h2><div id="expay"></div><button class="secondary" onclick="lgExAddPay()">+ پرداخت از حساب دیگر</button>
   <div class="card" id="exsum"></div>
-  <label>تاریخ</label>${dateInputRow('exdt',today())}${field('exs','شرح','')}
+  <label>تاریخ</label>${dateInputRow('exdt',today())}
   ${actions('lgExpenseDo()','ثبت هزینه')}`);
   attachAmountFormatter('exm');$('exm').addEventListener('input',lgExSum);
   lgExRender();
@@ -3724,7 +3725,7 @@ function lgShareTrial(){
 }
 function lgMore(){
   const st=LG.settings;
-  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۷٫۰</p>
+  return `<h2>بیشتر</h2><p class="muted">نسخهٔ برنامه: ۱٫۲۷٫۱</p>
   ${themeCard()}${synCard()}
   <div class="card"><b>شرکا و درصدها</b><p class="muted">${LG.partners.map(p=>esc(p.name)+' '+fa(lSharesAt(LG,today())[p.id])+'٪').join(' · ')}</p><button onclick="lgPartners()">مدیریت شرکا</button></div>
   <div class="card"><b>حساب‌های بانکی و صندوق</b><p class="muted">افزودن، تغییر نام یا غیرفعال‌کردن حساب‌های بانکی</p><button onclick="lgBanks()">مدیریت حساب‌ها</button></div>
